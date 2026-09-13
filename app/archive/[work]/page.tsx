@@ -5,49 +5,17 @@ import Link from "next/link";
 import WorkGallery from "./WorkGallery";
 import EkolodSound from "./EkolodSound";
 
-const workInfo: {
-  [key: string]: {
-    title: string;
-    description: string;
-  };
+const workTitles: {
+  [key: string]: string;
 } = {
-  "tunnels-under-gods-skin": {
-    title: "Tunnels Under Gods Skin",
-    description:
-      "Presented at Gallery Verkligheten, Umeå, 12 April 2024. Dance performance with Hampus Bergenheim, Jasmine Skog, Emelie Sandén, Olivia Gilbertson and Ebba Svanberg.",
-  },
-
-  backslope: {
-    title: "Backslope",
-    description:
-      "Performed by Rasmus Johansson at Umeå Academy of Fine Arts, 10 May 2025.",
-  },
-
-  "heat-exchanges": {
-    title: "Heat Exchanges",
-    description:
-      "Performance, 2025, at Bildmuseet, Umeå.",
-  },
-
-  "how-i-open-up-is-a-sign-of-restraint": {
-    title: "How I open up is a sign of restraint",
-    description: "Performance, 2023, Umeå Academy of Fine Arts.",
-  },
-
-  "bronze-shell-sensor": {
-    title: "Bronze Shell Sensor",
-    description: "Gallery Alva.",
-  },
-
-  ekolod: {
-    title: "Ekolod",
-    description: "Centrum för fotografi (CFF), Stockholm, 2026.",
-  },
-
-  bell: {
-    title: "Bell",
-    description: "2023",
-  },
+  "tunnels-under-gods-skin": "Tunnels Under Gods Skin",
+  backslope: "Backslope",
+  "heat-exchanges": "Heat Exchanges",
+  "how-i-open-up-is-a-sign-of-restraint":
+    "How I open up is a sign of restraint",
+  "bronze-shell-sensor": "Bronze Shell Sensor",
+  ekolod: "Ekolod",
+  bell: "Bell",
 };
 
 export default async function WorkPage({
@@ -57,24 +25,39 @@ export default async function WorkPage({
 }) {
   const { work } = await params;
 
-  const info = workInfo[work] || {
-    title: work
-      .replace(/-/g, " ")
-      .replace(/\b\w/g, (letter) => letter.toUpperCase()),
-    description: "your description here",
-  };
-
-  const isTunnels = work === "tunnels-under-gods-skin";
-  const isBackslope = work === "backslope";
-  const isHeatExchanges = work === "heat-exchanges";
-  const isEkolod = work.toLowerCase() === "ekolod";
-
   const workFolder = path.join(
     process.cwd(),
     "public",
     "archive",
     work
   );
+
+  const title =
+    workTitles[work] ||
+    work
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+  let description = "";
+
+  try {
+    const descriptionPath = path.join(
+      workFolder,
+      "description.txt"
+    );
+
+    if (fs.existsSync(descriptionPath)) {
+      description = fs.readFileSync(
+        descriptionPath,
+        "utf8"
+      ).trim();
+    }
+  } catch (error) {
+    console.error(
+      "Could not read description:",
+      error
+    );
+  }
 
   let images: string[] = [];
 
@@ -86,8 +69,33 @@ export default async function WorkPage({
       )
       .sort();
   } catch (error) {
-    console.error("Could not read images:", error);
+    console.error(
+      "Could not read images:",
+      error
+    );
   }
+
+  let videoFile: string | null = null;
+
+  try {
+    const video = fs
+      .readdirSync(workFolder)
+      .find((file) =>
+        /\.(mp4|webm|mov)$/i.test(file)
+      );
+
+    if (video) {
+      videoFile = video;
+    }
+  } catch (error) {
+    console.error(
+      "Could not read video:",
+      error
+    );
+  }
+
+  const isEkolod =
+    work.toLowerCase() === "ekolod";
 
   return (
     <div
@@ -101,10 +109,8 @@ export default async function WorkPage({
         boxSizing: "border-box",
       }}
     >
-      {/* Ekolod Sound Control */}
       {isEkolod && <EkolodSound />}
 
-      {/* Back Link */}
       <nav
         style={{
           position: "fixed",
@@ -128,7 +134,6 @@ export default async function WorkPage({
         </Link>
       </nav>
 
-      {/* Title and Description */}
       <div
         style={{
           maxWidth: "700px",
@@ -144,98 +149,33 @@ export default async function WorkPage({
             letterSpacing: "0.08em",
           }}
         >
-          {info.title}
+          {title}
         </h1>
 
-        <p
-          style={{
-            margin: "1.5rem 0 0 0",
-            fontSize: "1rem",
-            lineHeight: 1.8,
-            opacity: 0.85,
-          }}
-        >
-          {info.description}
-        </p>
+        {description && (
+          <p
+            style={{
+              margin: "1.5rem 0 0 0",
+              fontSize: "1rem",
+              lineHeight: 1.8,
+              opacity: 0.85,
+            }}
+          >
+            {description}
+          </p>
+        )}
       </div>
 
-      {/* Tunnels Under Gods Skin */}
-      {isTunnels && (
-        <>
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "350px",
-              margin: "0 auto 4rem auto",
-            }}
-          >
-            <video
-              src="/archive/tunnels-under-gods-skin/video.mp4"
-              autoPlay
-              loop
-              muted
-              playsInline
-              controls
-              style={{
-                width: "100%",
-                height: "auto",
-                display: "block",
-              }}
-            />
-          </div>
-
-          <WorkGallery
-            images={images}
-            work={work}
-            title={info.title}
-          />
-        </>
-      )}
-
-      {/* Backslope */}
-      {isBackslope && (
-        <>
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "350px",
-              margin: "0 auto 4rem auto",
-            }}
-          >
-            <video
-              src="/archive/backslope/video.mp4"
-              autoPlay
-              loop
-              muted
-              playsInline
-              controls
-              style={{
-                width: "100%",
-                height: "auto",
-                display: "block",
-              }}
-            />
-          </div>
-
-          <WorkGallery
-            images={images}
-            work={work}
-            title={info.title}
-          />
-        </>
-      )}
-
-      {/* Heat Exchanges */}
-      {isHeatExchanges && (
+      {videoFile && (
         <div
           style={{
             width: "100%",
             maxWidth: "350px",
-            margin: "0 auto",
+            margin: "0 auto 4rem auto",
           }}
         >
           <video
-            src="/archive/heat-exchanges/video.mp4"
+            src={`/archive/${work}/${videoFile}`}
             autoPlay
             loop
             muted
@@ -250,16 +190,11 @@ export default async function WorkPage({
         </div>
       )}
 
-      {/* All Other Works */}
-      {!isTunnels &&
-        !isBackslope &&
-        !isHeatExchanges && (
-          <WorkGallery
-            images={images}
-            work={work}
-            title={info.title}
-          />
-        )}
+      <WorkGallery
+        images={images}
+        work={work}
+        title={title}
+      />
     </div>
   );
 }
