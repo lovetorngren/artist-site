@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+
 import {
   useEffect,
   useRef,
   useState,
 } from "react";
+
 import SoundPlayer, {
   SoundPlayerHandle,
 } from "./SoundPlayer";
@@ -61,7 +63,9 @@ export default function SoundPageClient({
     ==================================================
   */
 
-  const playerRefs = useRef<Map<string, SoundPlayerHandle>>(new Map());
+  const playerRefs = useRef<Map<string, SoundPlayerHandle>>(
+    new Map()
+  );
 
   /*
     ==================================================
@@ -71,6 +75,7 @@ export default function SoundPageClient({
 
   const [globalProgress, setGlobalProgress] = useState(0);
   const globalProgressRef = useRef(0);
+
   const [globalPlaying, setGlobalPlaying] = useState(false);
 
   const globalDragging = useRef(false);
@@ -118,8 +123,11 @@ export default function SoundPageClient({
   const [filterNode, setFilterNode] =
     useState<BiquadFilterNode | null>(null);
 
-  const [filterPosition, setFilterPosition] = useState(0);
-  const [highpassPosition, setHighpassPosition] = useState(0);
+  const [filterPosition, setFilterPosition] =
+    useState(0);
+
+  const [highpassPosition, setHighpassPosition] =
+    useState(0);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -127,13 +135,11 @@ export default function SoundPageClient({
     const context = new AudioContext();
 
     const filter = context.createBiquadFilter();
-
     filter.type = "lowpass";
     filter.Q.value = 0;
     filter.frequency.value = 20000;
 
     const highpass = context.createBiquadFilter();
-
     highpass.type = "highpass";
     highpass.Q.value = 0;
     highpass.frequency.value = 20;
@@ -260,7 +266,8 @@ export default function SoundPageClient({
     ==================================================
   */
 
-  const [metronomeOn, setMetronomeOn] = useState(false);
+  const [metronomeOn, setMetronomeOn] =
+    useState(false);
 
   const metronomeAudioRef =
     useRef<HTMLAudioElement | null>(null);
@@ -273,6 +280,14 @@ export default function SoundPageClient({
 
   const metronomeSilentCount =
     useRef(0);
+
+  /*
+    Create the metronome audio once.
+
+    The first play is triggered directly by the
+    button click below, so the browser recognizes
+    it as a user-initiated sound.
+  */
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -291,15 +306,33 @@ export default function SoundPageClient({
 
       audio.pause();
       audio.src = "";
+
       metronomeAudioRef.current = null;
     };
   }, []);
 
-  useEffect(() => {
-    if (!metronomeOn) {
+  /*
+    Start / stop the metronome.
+
+    The first sound happens directly inside the
+    button event, which avoids browser autoplay
+    blocking.
+  */
+
+  const toggleMetronome = async () => {
+    const audio = metronomeAudioRef.current;
+
+    if (metronomeOn) {
+      setMetronomeOn(false);
+
       if (metronomeTimer.current) {
         clearTimeout(metronomeTimer.current);
         metronomeTimer.current = null;
+      }
+
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
       }
 
       metronomePlayCount.current = 0;
@@ -308,43 +341,74 @@ export default function SoundPageClient({
       return;
     }
 
+    if (!audio) return;
+
+    /*
+      This play() happens directly because the user
+      clicked the MET button.
+    */
+
+    audio.currentTime = 0;
+
+    try {
+      await audio.play();
+    } catch (error) {
+      console.error(
+        "Could not start metronome:",
+        error
+      );
+
+      return;
+    }
+
+    /*
+      The first beat has already played.
+    */
+
+    metronomePlayCount.current = 1;
+    metronomeSilentCount.current = 0;
+
+    setMetronomeOn(true);
+  };
+
+  /*
+    Continue the metronome after the first
+    user-initiated beat.
+
+    48 beats playing,
+    then 8 silent beats,
+    then repeat.
+  */
+
+  useEffect(() => {
+    if (!metronomeOn) return;
+
     const tick = () => {
       const audio = metronomeAudioRef.current;
-
-      /*
-        48 metronome plays
-        followed by
-        8 silent beats.
-      */
 
       if (metronomePlayCount.current < 48) {
         if (audio) {
           audio.currentTime = 0;
 
-          audio
-            .play()
-            .catch(() => {});
+          audio.play().catch((error) => {
+            console.error(
+              "Could not play metronome:",
+              error
+            );
+          });
         }
 
         metronomePlayCount.current += 1;
       } else {
         metronomeSilentCount.current += 1;
 
-        if (metronomeSilentCount.current >= 8) {
+        if (
+          metronomeSilentCount.current >= 8
+        ) {
           metronomePlayCount.current = 0;
           metronomeSilentCount.current = 0;
         }
       }
-
-      /*
-        Metronome is half the S&H speed.
-
-        S&H:
-        60000 / BPM
-
-        Metronome:
-        2 × S&H interval
-      */
 
       const interval =
         (60000 / sampleBpmRef.current) * 2;
@@ -353,79 +417,11 @@ export default function SoundPageClient({
         setTimeout(tick, interval);
     };
 
-    /*
-      Start immediately when enabled.
-    */
-
-    metronomePlayCount.current = 0;
-    metronomeSilentCount.current = 0;
-
-    tick();
-
-    return () => {
-      if (metronomeTimer.current) {
-        clearTimeout(metronomeTimer.current);
-        metronomeTimer.current = null;
-      }
-    };
-  }, [metronomeOn]);
-
-  /*
-    Restart metronome timing when BPM changes.
-
-    The 48 / 8 cycle is preserved.
-  */
-
-  useEffect(() => {
-    if (!metronomeOn) return;
-
-    if (metronomeTimer.current) {
-      clearTimeout(metronomeTimer.current);
-      metronomeTimer.current = null;
-    }
-
     const interval =
       (60000 / sampleBpmRef.current) * 2;
 
-    const continueMetronome = () => {
-      const audio = metronomeAudioRef.current;
-
-      if (metronomePlayCount.current < 48) {
-        if (audio) {
-          audio.currentTime = 0;
-
-          audio
-            .play()
-            .catch(() => {});
-        }
-
-        metronomePlayCount.current += 1;
-      } else {
-        metronomeSilentCount.current += 1;
-
-        if (metronomeSilentCount.current >= 8) {
-          metronomePlayCount.current = 0;
-          metronomeSilentCount.current = 0;
-        }
-      }
-
-      metronomeTimer.current =
-        setTimeout(
-          continueMetronome,
-          (60000 / sampleBpmRef.current) * 2
-        );
-    };
-
-    /*
-      Do not immediately play again here.
-      Wait for the next metronome beat.
-    */
-
     metronomeTimer.current =
-      setTimeout(
-        continueMetronome,
-        interval
-      );
+      setTimeout(tick, interval);
 
     return () => {
       if (metronomeTimer.current) {
@@ -433,7 +429,7 @@ export default function SoundPageClient({
         metronomeTimer.current = null;
       }
     };
-  }, [sampleBpm]);
+  }, [metronomeOn, sampleBpm]);
 
   /*
     ==================================================
@@ -451,7 +447,10 @@ export default function SoundPageClient({
       (event.clientY - rect.top) / rect.height;
 
     const newVolume =
-      Math.max(0, Math.min(1, 1 - position));
+      Math.max(
+        0,
+        Math.min(1, 1 - position)
+      );
 
     setVolume(newVolume);
 
@@ -500,7 +499,6 @@ export default function SoundPageClient({
       );
 
       setGlobalPlaying(false);
-
       return;
     }
 
@@ -565,6 +563,7 @@ export default function SoundPageClient({
     moveGlobalTo(clickedPosition);
 
     globalDragging.current = true;
+
     globalStartY.current =
       event.clientY;
 
@@ -794,8 +793,7 @@ export default function SoundPageClient({
   const handleSampleSpeedUp = (
     event: React.PointerEvent<HTMLDivElement>
   ) => {
-    sampleDragging.current =
-      false;
+    sampleDragging.current = false;
 
     if (
       event.currentTarget.hasPointerCapture(
@@ -877,8 +875,7 @@ export default function SoundPageClient({
   const handleRangeSizeUp = (
     event: React.PointerEvent<HTMLDivElement>
   ) => {
-    rangeDragging.current =
-      false;
+    rangeDragging.current = false;
 
     if (
       event.currentTarget.hasPointerCapture(
@@ -927,8 +924,7 @@ export default function SoundPageClient({
   ) => {
     event.preventDefault();
 
-    filterDragging.current =
-      true;
+    filterDragging.current = true;
 
     updateFilterPosition(
       event.clientY,
@@ -954,8 +950,7 @@ export default function SoundPageClient({
   const handleFilterPointerUp = (
     event: React.PointerEvent<HTMLDivElement>
   ) => {
-    filterDragging.current =
-      false;
+    filterDragging.current = false;
 
     if (
       event.currentTarget.hasPointerCapture(
@@ -1004,8 +999,7 @@ export default function SoundPageClient({
   ) => {
     event.preventDefault();
 
-    highpassDragging.current =
-      true;
+    highpassDragging.current = true;
 
     updateHighpassPosition(
       event.clientY,
@@ -1031,8 +1025,7 @@ export default function SoundPageClient({
   const handleHighpassPointerUp = (
     event: React.PointerEvent<HTMLDivElement>
   ) => {
-    highpassDragging.current =
-      false;
+    highpassDragging.current = false;
 
     if (
       event.currentTarget.hasPointerCapture(
@@ -1234,9 +1227,7 @@ export default function SoundPageClient({
         </Link>
       </nav>
 
-      {/* ==================================================
-          LEFT GLOBAL CONTROLS
-          ================================================== */}
+      {/* LEFT GLOBAL CONTROLS */}
 
       <div
         style={{
@@ -1687,11 +1678,7 @@ export default function SoundPageClient({
           {/* METRONOME */}
 
           <button
-            onClick={() =>
-              setMetronomeOn(
-                !metronomeOn
-              )
-            }
+            onClick={toggleMetronome}
             style={{
               marginTop: "0.8rem",
               border: "none",
@@ -1706,14 +1693,13 @@ export default function SoundPageClient({
               whiteSpace: "nowrap",
             }}
           >
-            MET {metronomeOn ? "ON" : "OFF"}
+            MET{" "}
+            {metronomeOn ? "ON" : "OFF"}
           </button>
         </div>
       </div>
 
-      {/* ==================================================
-          GLOBAL VOLUME
-          ================================================== */}
+      {/* GLOBAL VOLUME */}
 
       <div
         style={{
@@ -1850,9 +1836,7 @@ export default function SoundPageClient({
         </button>
       </div>
 
-      {/* ==================================================
-          CONTENT
-          ================================================== */}
+      {/* CONTENT */}
 
       <main
         style={{
@@ -1876,7 +1860,7 @@ export default function SoundPageClient({
           .filter(
             ({ sound }) =>
               sound.toLowerCase() !==
-              "metronome.wav"
+              "metronome.mp3"
           )
           .map(
             (

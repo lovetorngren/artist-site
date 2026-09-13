@@ -14,8 +14,10 @@ export default function SoundPage() {
   try {
     sounds = fs
       .readdirSync(soundFolder)
-      .filter((file) =>
-        /\.(wav|mp3|ogg|m4a)$/i.test(file)
+      .filter(
+        (file) =>
+          /\.(wav|mp3|ogg|m4a)$/i.test(file) &&
+          file.toLowerCase() !== "metronome.mp3"
       )
       .sort();
   } catch (error) {
