@@ -2338,7 +2338,7 @@ export default function SoundPageClient({
           <h2
             style={{
               margin:
-                "0 0 3rem 0",
+                "0 0 1rem 0",
               fontSize:
                 "1.2rem",
               fontWeight: 400,
@@ -2348,6 +2348,19 @@ export default function SoundPageClient({
           >
             Released Music
           </h2>
+
+          <a
+            href="https://open.spotify.com/playlist/642UvNbjQ9KbBb1EViMKkZ?si=EfMRRCo4RxaNj3La-fsZcw&utm_source=copy-link&pi=iw43gXP4SI6TZ"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: "#ffffff",
+              textDecoration: "none",
+              opacity: 0.85,
+            }}
+          >
+            Spotify playlist
+          </a>
         </section>
       </main>
     </div>
