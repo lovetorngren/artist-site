@@ -26,6 +26,7 @@
 
 # debug
 npm-debug.log*
+/public/sound/*.wav
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
@@ -39,4 +40,4 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-/public/sound/
+/public/sound/*.wav
