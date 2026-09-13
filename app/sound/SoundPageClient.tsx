@@ -277,7 +277,7 @@ export default function SoundPageClient({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const audio = new Audio("/sound/metronome.wav");
+    const audio = new Audio("/sound/metronome.mp3");
 
     audio.preload = "auto";
 
