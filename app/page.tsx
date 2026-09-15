@@ -51,7 +51,7 @@ export default function LandingPage() {
         }}
       >
         <Link href="/archive" className="navlink">
-          archive
+          works
         </Link>
 
         <Link href="/deep-sea-logic" className="navlink">

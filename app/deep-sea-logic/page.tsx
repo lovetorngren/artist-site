@@ -39,22 +39,16 @@ export default function DeepSeaLogicPage() {
       return;
     }
 
-    const contextElement =
-      canvasElement.getContext("2d");
+    const contextElement = canvasElement.getContext("2d");
 
     if (contextElement === null) {
       return;
     }
 
-    const canvas: HTMLCanvasElement =
-      canvasElement;
+    const canvas: HTMLCanvasElement = canvasElement;
+    const ctx: CanvasRenderingContext2D = contextElement;
 
-    const ctx: CanvasRenderingContext2D =
-      contextElement;
-
-    const rippleSound =
-      new Audio("/deepripple.wav");
-
+    const rippleSound = new Audio("/deepripple.wav");
     rippleSound.preload = "auto";
 
     let width = 0;
@@ -83,49 +77,25 @@ export default function DeepSeaLogicPage() {
     for (let i = 0; i < particleCount; i++) {
       const position = Math.random();
 
-      const angle =
-        Math.random() *
-        Math.PI *
-        2;
+      const angle = Math.random() * Math.PI * 2;
 
       const radius =
         0.08 +
-        Math.pow(
-          1 - position,
-          0.72
-        ) *
-          1.15;
+        Math.pow(1 - position, 0.72) * 1.15;
 
       const irregularity =
         1 +
-        Math.sin(
-          angle * 7 +
-            position * 20
-        ) *
-          0.035 +
-        (Math.random() - 0.5) *
-          0.08;
+        Math.sin(angle * 7 + position * 20) * 0.035 +
+        (Math.random() - 0.5) * 0.08;
 
-      const finalRadius =
-        radius *
-        irregularity;
+      const finalRadius = radius * irregularity;
 
       particles.push({
-        x:
-          (position - 0.5) *
-          2.7,
-        y:
-          Math.cos(angle) *
-          finalRadius,
-        z:
-          Math.sin(angle) *
-          finalRadius,
-        size:
-          0.35 +
-          Math.random() * 0.9,
-        brightness:
-          0.35 +
-          Math.random() * 0.65,
+        x: (position - 0.5) * 2.7,
+        y: Math.cos(angle) * finalRadius,
+        z: Math.sin(angle) * finalRadius,
+        size: 0.35 + Math.random() * 0.9,
+        brightness: 0.35 + Math.random() * 0.65,
         angle,
         position,
         radius: finalRadius,
@@ -133,25 +103,18 @@ export default function DeepSeaLogicPage() {
     }
 
     function resize() {
-      const rect =
-        canvas.getBoundingClientRect();
+      const rect = canvas.getBoundingClientRect();
 
-      const devicePixelRatio =
-        Math.min(
-          window.devicePixelRatio || 1,
-          2
-        );
+      const devicePixelRatio = Math.min(
+        window.devicePixelRatio || 1,
+        2
+      );
 
       width = rect.width;
       height = rect.height;
 
-      canvas.width =
-        width *
-        devicePixelRatio;
-
-      canvas.height =
-        height *
-        devicePixelRatio;
+      canvas.width = width * devicePixelRatio;
+      canvas.height = height * devicePixelRatio;
 
       ctx.setTransform(
         devicePixelRatio,
@@ -168,33 +131,17 @@ export default function DeepSeaLogicPage() {
       y: number,
       z: number
     ) {
-      const cosY =
-        Math.cos(rotationY);
+      const cosY = Math.cos(rotationY);
+      const sinY = Math.sin(rotationY);
 
-      const sinY =
-        Math.sin(rotationY);
+      const x1 = x * cosY - z * sinY;
+      const z1 = x * sinY + z * cosY;
 
-      const x1 =
-        x * cosY -
-        z * sinY;
+      const cosX = Math.cos(rotationX);
+      const sinX = Math.sin(rotationX);
 
-      const z1 =
-        x * sinY +
-        z * cosY;
-
-      const cosX =
-        Math.cos(rotationX);
-
-      const sinX =
-        Math.sin(rotationX);
-
-      const y2 =
-        y * cosX -
-        z1 * sinX;
-
-      const z2 =
-        y * sinX +
-        z1 * cosX;
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
 
       return {
         x: x1,
@@ -207,28 +154,17 @@ export default function DeepSeaLogicPage() {
       angleA: number,
       angleB: number
     ) {
-      let difference =
-        angleA - angleB;
+      let difference = angleA - angleB;
 
-      while (
-        difference >
-        Math.PI
-      ) {
-        difference -=
-          Math.PI * 2;
+      while (difference > Math.PI) {
+        difference -= Math.PI * 2;
       }
 
-      while (
-        difference <
-        -Math.PI
-      ) {
-        difference +=
-          Math.PI * 2;
+      while (difference < -Math.PI) {
+        difference += Math.PI * 2;
       }
 
-      return Math.abs(
-        difference
-      );
+      return Math.abs(difference);
     }
 
     function findClickedParticle(
@@ -236,108 +172,60 @@ export default function DeepSeaLogicPage() {
       mouseY: number,
       projected: ProjectedParticle[]
     ) {
-      let closest:
-        ProjectedParticle | null =
-        null;
+      let closest: ProjectedParticle | null = null;
+      let closestDistance = Infinity;
 
-      let closestDistance =
-        Infinity;
+      for (const particle of projected) {
+        const dx = particle.x - mouseX;
+        const dy = particle.y - mouseY;
 
-      for (
-        const particle of projected
-      ) {
-        const dx =
-          particle.x -
-          mouseX;
+        const distance = dx * dx + dy * dy;
 
-        const dy =
-          particle.y -
-          mouseY;
-
-        const distance =
-          dx * dx +
-          dy * dy;
-
-        if (
-          distance <
-          closestDistance
-        ) {
-          closestDistance =
-            distance;
-
-          closest =
-            particle;
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closest = particle;
         }
       }
 
       return closest;
     }
 
-    function drawEntranceBall(
-      now: number
-    ) {
-      const elapsed =
-        now -
-        entranceTime;
+    function drawEntranceBall(now: number) {
+      const elapsed = now - entranceTime;
 
-      const fallDuration =
-        2500;
-
-      const stayDuration =
-        700;
-
-      const shrinkDuration =
-        200;
+      const fallDuration = 2500;
+      const stayDuration = 700;
+      const shrinkDuration = 200;
 
       const totalDuration =
         fallDuration +
         stayDuration +
         shrinkDuration;
 
-      if (
-        elapsed >=
-        totalDuration
-      ) {
+      if (elapsed >= totalDuration) {
         return;
       }
 
-      const startY =
-        -30;
+      const startY = -30;
+      const endY = height / 2;
 
-      const endY =
-        height / 2;
-
-      let ballY =
-        endY;
-
+      let ballY = endY;
       let radius = 6;
 
-      if (
-        elapsed <
-        fallDuration
-      ) {
-        const progress =
-          elapsed /
-          fallDuration;
+      if (elapsed < fallDuration) {
+        const progress = elapsed / fallDuration;
 
         const easedProgress =
-          1 -
-          Math.pow(
-            1 - progress,
-            3
-          );
+          1 - Math.pow(1 - progress, 3);
 
         ballY =
           startY +
-          (endY - startY) *
-            easedProgress;
+          (endY - startY) * easedProgress;
       } else if (
         elapsed <
-        fallDuration +
-          stayDuration
+        fallDuration + stayDuration
       ) {
-        ballY =
-          endY;
+        ballY = endY;
       } else {
         const shrinkProgress =
           (elapsed -
@@ -349,14 +237,11 @@ export default function DeepSeaLogicPage() {
           6 *
           Math.max(
             0,
-            1 -
-              shrinkProgress
+            1 - shrinkProgress
           );
       }
 
-      if (
-        radius <= 0
-      ) {
+      if (radius <= 0) {
         return;
       }
 
@@ -370,15 +255,12 @@ export default function DeepSeaLogicPage() {
         Math.PI * 2
       );
 
-      ctx.fillStyle =
-        "rgba(255,255,255,1)";
-
+      ctx.fillStyle = "rgba(255,255,255,1)";
       ctx.fill();
     }
 
     function draw() {
-      ctx.fillStyle =
-        "#000000";
+      ctx.fillStyle = "#000000";
 
       ctx.fillRect(
         0,
@@ -388,68 +270,47 @@ export default function DeepSeaLogicPage() {
       );
 
       rotationY +=
-        (targetRotationY -
-          rotationY) *
-        0.08;
+        (targetRotationY - rotationY) * 0.08;
 
       rotationX +=
-        (targetRotationX -
-          rotationX) *
-        0.08;
+        (targetRotationX - rotationX) * 0.08;
 
       zoom +=
-        (targetZoom -
-          zoom) *
-        0.1;
+        (targetZoom - zoom) * 0.1;
 
-      const now =
-        performance.now();
+      const now = performance.now();
 
       for (
-        let i =
-          ripples.length - 1;
+        let i = ripples.length - 1;
         i >= 0;
         i--
       ) {
         if (
           now -
-            ripples[i]
-              .startTime >
+            ripples[i].startTime >
           6000
         ) {
-          ripples.splice(
-            i,
-            1
-          );
+          ripples.splice(i, 1);
         }
       }
 
-      const projected:
-        ProjectedParticle[] = [];
+      const projected: ProjectedParticle[] = [];
 
-      for (
-        const particle of particles
-      ) {
-        const rotated =
-          rotatePoint(
-            particle.x,
-            particle.y,
-            particle.z
-          );
+      for (const particle of particles) {
+        const rotated = rotatePoint(
+          particle.x,
+          particle.y,
+          particle.z
+        );
 
-        const cameraDistance =
-          3.4;
+        const cameraDistance = 3.4;
 
         const perspective =
           cameraDistance /
-          (cameraDistance +
-            rotated.z);
+          (cameraDistance + rotated.z);
 
         const scale =
-          Math.min(
-            width,
-            height
-          ) *
+          Math.min(width, height) *
           0.45 *
           zoom;
 
@@ -475,16 +336,13 @@ export default function DeepSeaLogicPage() {
             zoom,
           brightness:
             particle.brightness *
-            (0.75 +
-              perspective *
-                0.65),
+            (0.75 + perspective * 0.65),
           particle,
         });
       }
 
       projected.sort(
-        (a, b) =>
-          a.z - b.z
+        (a, b) => a.z - b.z
       );
 
       for (
@@ -496,24 +354,18 @@ export default function DeepSeaLogicPage() {
         let rippleBrightness = 0;
         let displacement = 0;
 
-        for (
-          const ripple of ripples
-        ) {
+        for (const ripple of ripples) {
           const age =
-            now -
-            ripple.startTime;
+            now - ripple.startTime;
 
-          const waveSpeed =
-            0.000575;
+          const waveSpeed = 0.000575;
 
           const waveRadius =
-            age *
-            waveSpeed;
+            age * waveSpeed;
 
           const longitudinalDistance =
             Math.abs(
-              particle.x -
-                ripple.x
+              particle.x - ripple.x
             );
 
           const angleDifference =
@@ -535,8 +387,8 @@ export default function DeepSeaLogicPage() {
             Math.sqrt(
               longitudinalDistance *
                 longitudinalDistance +
-                circumferentialDistance *
-                  circumferentialDistance
+              circumferentialDistance *
+                circumferentialDistance
             );
 
           const distanceFromWave =
@@ -545,8 +397,7 @@ export default function DeepSeaLogicPage() {
                 waveRadius
             );
 
-          const waveWidth =
-            0.09;
+          const waveWidth = 0.09;
 
           if (
             distanceFromWave <
@@ -560,14 +411,11 @@ export default function DeepSeaLogicPage() {
             const fade =
               Math.max(
                 0,
-                1 -
-                  age /
-                    6000
+                1 - age / 6000
               );
 
             const wave =
-              strength *
-              fade;
+              strength * fade;
 
             rippleBrightness =
               Math.max(
@@ -575,8 +423,7 @@ export default function DeepSeaLogicPage() {
                 wave
               );
 
-            displacement +=
-              wave;
+            displacement += wave;
           }
         }
 
@@ -588,8 +435,7 @@ export default function DeepSeaLogicPage() {
           Math.max(
             0.35,
             projectedParticle.size +
-              rippleBrightness *
-                4.8
+              rippleBrightness * 4.8
           );
 
         let drawX =
@@ -598,12 +444,9 @@ export default function DeepSeaLogicPage() {
         let drawY =
           projectedParticle.y;
 
-        if (
-          displacement > 0
-        ) {
+        if (displacement > 0) {
           const outward =
-            0.025 *
-            displacement;
+            0.025 * displacement;
 
           const displaced =
             rotatePoint(
@@ -620,8 +463,7 @@ export default function DeepSeaLogicPage() {
                   outward
             );
 
-          const cameraDistance =
-            3.4;
+          const cameraDistance = 3.4;
 
           const perspective =
             cameraDistance /
@@ -651,18 +493,14 @@ export default function DeepSeaLogicPage() {
 
         if (
           drawX < -10 ||
-          drawX >
-            width + 10 ||
+          drawX > width + 10 ||
           drawY < -10 ||
-          drawY >
-            height + 10
+          drawY > height + 10
         ) {
           continue;
         }
 
-        if (
-          brightness <= 0
-        ) {
+        if (brightness <= 0) {
           continue;
         }
 
@@ -670,23 +508,17 @@ export default function DeepSeaLogicPage() {
           `rgba(255,255,255,${brightness})`;
 
         ctx.fillRect(
-          drawX -
-            size / 2,
-          drawY -
-            size / 2,
+          drawX - size / 2,
+          drawY - size / 2,
           size,
           size
         );
       }
 
-      drawEntranceBall(
-        now
-      );
+      drawEntranceBall(now);
 
       animationFrame =
-        requestAnimationFrame(
-          draw
-        );
+        requestAnimationFrame(draw);
     }
 
     function handleMouseDown(
@@ -700,21 +532,16 @@ export default function DeepSeaLogicPage() {
       previousMouseY =
         event.clientY;
 
-      const projected:
-        ProjectedParticle[] = [];
+      const projected: ProjectedParticle[] = [];
 
-      for (
-        const particle of particles
-      ) {
-        const rotated =
-          rotatePoint(
-            particle.x,
-            particle.y,
-            particle.z
-          );
+      for (const particle of particles) {
+        const rotated = rotatePoint(
+          particle.x,
+          particle.y,
+          particle.z
+        );
 
-        const cameraDistance =
-          3.4;
+        const cameraDistance = 3.4;
 
         const perspective =
           cameraDistance /
@@ -760,14 +587,10 @@ export default function DeepSeaLogicPage() {
 
       if (clicked !== null) {
         ripples.push({
-          x:
-            clicked.particle.x,
-          angle:
-            clicked.particle.angle,
-          radius:
-            clicked.particle.radius,
-          startTime:
-            performance.now(),
+          x: clicked.particle.x,
+          angle: clicked.particle.angle,
+          radius: clicked.particle.radius,
+          startTime: performance.now(),
         });
 
         rippleSound.pause();
@@ -776,8 +599,7 @@ export default function DeepSeaLogicPage() {
         void rippleSound.play();
       }
 
-      canvas.style.cursor =
-        "grabbing";
+      canvas.style.cursor = "grabbing";
     }
 
     function handleMouseMove(
@@ -820,8 +642,7 @@ export default function DeepSeaLogicPage() {
     function handleMouseUp() {
       dragging = false;
 
-      canvas.style.cursor =
-        "grab";
+      canvas.style.cursor = "grab";
     }
 
     function handleWheel(
@@ -830,8 +651,7 @@ export default function DeepSeaLogicPage() {
       event.preventDefault();
 
       targetZoom +=
-        -event.deltaY *
-        0.0015;
+        -event.deltaY * 0.0015;
 
       targetZoom =
         Math.max(
@@ -845,8 +665,7 @@ export default function DeepSeaLogicPage() {
 
     resize();
 
-    canvas.style.cursor =
-      "grab";
+    canvas.style.cursor = "grab";
 
     window.addEventListener(
       "resize",
@@ -875,9 +694,7 @@ export default function DeepSeaLogicPage() {
     );
 
     animationFrame =
-      requestAnimationFrame(
-        draw
-      );
+      requestAnimationFrame(draw);
 
     return () => {
       cancelAnimationFrame(
@@ -916,21 +733,39 @@ export default function DeepSeaLogicPage() {
       style={{
         width: "100%",
         height: "100vh",
-        background:
-          "#000000",
-        overflow:
-          "hidden",
+        background: "#000000",
+        overflow: "hidden",
+        position: "relative",
       }}
     >
+      <button
+        type="button"
+        onClick={() => {
+          window.history.back();
+        }}
+        style={{
+          position: "absolute",
+          top: "24px",
+          left: "24px",
+          zIndex: 10,
+          background: "transparent",
+          border: "none",
+          color: "#ffffff",
+          fontSize: "14px",
+          fontFamily: "inherit",
+          cursor: "pointer",
+          padding: "8px",
+        }}
+      >
+          ← Back
+      </button>
+
       <canvas
         ref={canvasRef}
         style={{
-          display:
-            "block",
-          width:
-            "100%",
-          height:
-            "100%",
+          display: "block",
+          width: "100%",
+          height: "100%",
         }}
       />
     </main>
