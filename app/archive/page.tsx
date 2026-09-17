@@ -36,10 +36,9 @@ export default function ArchivePage() {
 
     // Automatically include any new folders
     // that haven't been added to workOrder yet.
-    const unorderedWorks =
-      existingFolders.filter(
-        (work) => !workOrder.includes(work)
-      );
+    const unorderedWorks = existingFolders.filter(
+      (work) => !workOrder.includes(work)
+    );
 
     works = [
       ...works,
@@ -97,8 +96,7 @@ export default function ArchivePage() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns:
-            "repeat(2, 1fr)",
+          gridTemplateColumns: "repeat(2, 1fr)",
           gap: "2rem",
           maxWidth: "900px",
           width: "100%",
@@ -110,23 +108,18 @@ export default function ArchivePage() {
             work
           );
 
-          const files = fs.readdirSync(
-            workPath
-          );
+          const files = fs.readdirSync(workPath);
 
           // Video takes priority over images
           const videoFile = files.find(
             (file) =>
-              /\.(mp4|webm|mov)$/i.test(
-                file
-              )
+              /\.(mp4|webm|mov)$/i.test(file)
           );
 
           // If there is no video, use 01.jpg
           const imageFile = files.find(
             (file) =>
-              file.toLowerCase() ===
-              "01.jpg"
+              file.toLowerCase() === "01.jpg"
           );
 
           return (
@@ -155,28 +148,25 @@ export default function ArchivePage() {
                     objectFit: "cover",
                     borderRadius: "8px",
                     display: "block",
+                    pointerEvents: "none",
                   }}
                 />
               )}
 
               {/* Image thumbnail */}
-              {!videoFile &&
-                imageFile && (
-                  <img
-                    src={`/archive/${work}/${imageFile}`}
-                    alt={work.replace(
-                      /-/g,
-                      " "
-                    )}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      borderRadius: "8px",
-                      display: "block",
-                    }}
-                  />
-                )}
+              {!videoFile && imageFile && (
+                <img
+                  src={`/archive/${work}/${imageFile}`}
+                  alt={work.replace(/-/g, " ")}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    borderRadius: "8px",
+                    display: "block",
+                  }}
+                />
+              )}
 
               {/* Work title */}
               <div
@@ -195,8 +185,7 @@ export default function ArchivePage() {
                   .replace(/-/g, " ")
                   .replace(
                     /\b\w/g,
-                    (letter) =>
-                      letter.toUpperCase()
+                    (letter) => letter.toUpperCase()
                   )}
               </div>
             </Link>
