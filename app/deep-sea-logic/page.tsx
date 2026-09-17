@@ -128,11 +128,29 @@ export default function DeepSeaLogicPage() {
     let crackTargetY = 0;
 
     /*
-     * Separate zoom for the crack itself.
-     * Scrolling in the final state makes the crack
-     * wider, as if zooming into the opening.
+     * The original crack used crackZoom from 1
+     * to 8, with a scroll speed of 0.003.
+     *
+     * The initial scroll speed remains exactly
+     * 0.003 here.
+     *
+     * The maximum zoom is increased so the crack
+     * can grow from 9px to approximately 150px.
      */
     let crackZoom = 1;
+
+    /*
+     * These variables control the final rapid
+     * reveal once the crack reaches its maximum
+     * width.
+     */
+    let homepageRevealStart:
+      number | null = null;
+
+    let returningHome = false;
+
+    const maximumCrackZoom =
+      150 / 9;
 
     let clickCount = 0;
     let colorTransitionStart = 0;
@@ -803,10 +821,6 @@ export default function DeepSeaLogicPage() {
           )
         );
 
-      /*
-       * Smoothly open the crack from the final
-       * click position.
-       */
       const easedProgress =
         0.5 -
         0.5 *
@@ -827,18 +841,70 @@ export default function DeepSeaLogicPage() {
           0.75) *
           easedProgress;
 
-      const crackWidth =
+      let crackWidth =
         openingWidth *
         crackZoom;
 
       const crackHeight =
         maxCrackHeight;
 
-      /*
-       * The crack follows the mouse horizontally.
-       * Its vertical position stays fixed because
-       * the crack spans the entire screen height.
-       */
+      if (
+        crackZoom >=
+        maximumCrackZoom
+      ) {
+        if (
+          homepageRevealStart ===
+          null
+        ) {
+          homepageRevealStart =
+            now;
+        }
+
+        const revealElapsed =
+          now -
+          homepageRevealStart;
+
+        const revealDuration =
+          350;
+
+        const revealProgress =
+          Math.max(
+            0,
+            Math.min(
+              1,
+              revealElapsed /
+                revealDuration
+            )
+          );
+
+        const easedReveal =
+          0.5 -
+          0.5 *
+            Math.cos(
+              revealProgress *
+                Math.PI
+            );
+
+        crackWidth =
+          openingWidth *
+            maximumCrackZoom +
+          (width * 1.5 -
+            openingWidth *
+              maximumCrackZoom) *
+            easedReveal;
+
+        if (
+          revealProgress >=
+            1 &&
+          !returningHome
+        ) {
+          returningHome =
+            true;
+
+          router.push("/");
+        }
+      }
+
       if (
         progress < 1
       ) {
@@ -867,15 +933,9 @@ export default function DeepSeaLogicPage() {
 
       const top = 0;
 
-      const bottom = height;
+      const bottom =
+        crackHeight;
 
-      /*
-       * A straight vertical slit.
-       *
-       * The tiny offsets keep it from looking
-       * perfectly computer-generated while still
-       * reading as a straight crack.
-       */
       const edgeOffset =
         Math.min(
           1.2,
@@ -1163,11 +1223,6 @@ export default function DeepSeaLogicPage() {
       if (
         finalState
       ) {
-        /*
-         * The black surface remains completely
-         * static. The homepage is exposed only
-         * through the moving crack.
-         */
         ctx.fillStyle =
           "#000000";
 
@@ -1190,10 +1245,6 @@ export default function DeepSeaLogicPage() {
         return;
       }
 
-      /*
-       * Make sure the live homepage is hidden
-       * before the final sequence begins.
-       */
       if (
         homepagePortal !== null
       ) {
@@ -1226,15 +1277,6 @@ export default function DeepSeaLogicPage() {
           zoom) *
         0.1;
 
-      /*
-       * The final click only becomes available
-       * after:
-       *
-       * 1. Initial click
-       * 2. Actual drag
-       * 3. Maximum zoom
-       * 4. Three seconds at maximum zoom
-       */
       if (
         hasClickedOnce &&
         dragStarted &&
@@ -1293,10 +1335,6 @@ export default function DeepSeaLogicPage() {
         return;
       }
 
-      /*
-       * This is the only place where the final
-       * crack can be triggered.
-       */
       if (
         readyForFinalClick &&
         targetZoom >=
@@ -1325,6 +1363,12 @@ export default function DeepSeaLogicPage() {
           height / 2;
 
         crackZoom = 1;
+
+        homepageRevealStart =
+          null;
+
+        returningHome =
+          false;
 
         finalTransitionStart =
           performance.now();
@@ -1402,11 +1446,6 @@ export default function DeepSeaLogicPage() {
     function handleMouseMove(
       event: MouseEvent
     ) {
-      /*
-       * Once the final crack exists, the mouse
-       * controls the crack position instead of
-       * rotating the particle world.
-       */
       if (
         finalState
       ) {
@@ -1479,18 +1518,70 @@ export default function DeepSeaLogicPage() {
       ) {
         event.preventDefault();
 
+        if (
+          homepageRevealStart !==
+          null
+        ) {
+          return;
+        }
+
+        const scrollDirection =
+          -event.deltaY;
+
+        /*
+         * Original scroll speed:
+         *
+         * crackZoom +=
+         *   -event.deltaY * 0.003;
+         *
+         * The 0.003 value remains unchanged.
+         *
+         * Resistance starts at exactly 1 and
+         * increases exponentially as the crack
+         * approaches maximum width.
+         */
+        const normalizedZoom =
+          Math.max(
+            0,
+            Math.min(
+              1,
+              (crackZoom - 1) /
+                (maximumCrackZoom - 1)
+            )
+          );
+
+        const resistance =
+          Math.exp(
+            normalizedZoom *
+              1.2
+          );
+
         crackZoom +=
-          -event.deltaY *
-          0.003;
+          (
+            scrollDirection *
+            0.003
+          ) /
+          resistance;
 
         crackZoom =
           Math.max(
             1,
             Math.min(
-              8,
+              maximumCrackZoom,
               crackZoom
             )
           );
+
+        if (
+          crackZoom >=
+          maximumCrackZoom
+        ) {
+          crackZoom =
+            maximumCrackZoom;
+
+          homepageRevealStart =
+            performance.now();
+        }
 
         return;
       }
@@ -1668,19 +1759,6 @@ export default function DeepSeaLogicPage() {
         }}
       />
 
-      {/*
-       * The REAL homepage, rendered live at its
-       * normal full-screen size.
-       *
-       * The iframe never moves.
-       *
-       * The parent clip-path creates the crack,
-       * meaning the black canvas remains in front
-       * everywhere except inside the narrow slit.
-       *
-       * Pointer events stay disabled, so the crack
-       * can never be clicked into.
-       */}
       <div
         ref={homepagePortalRef}
         style={{
