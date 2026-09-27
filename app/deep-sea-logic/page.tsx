@@ -94,8 +94,8 @@ export default function DeepSeaLogicPage() {
     let targetZoom = 0.4;
 
     let dragging = false;
-    let previousMouseX = 0;
-    let previousMouseY = 0;
+    let previousPointerX = 0;
+    let previousPointerY = 0;
 
     let dragStarted = false;
     let hasClickedOnce = false;
@@ -1326,9 +1326,17 @@ export default function DeepSeaLogicPage() {
         );
     }
 
-    function handleMouseDown(
-      event: MouseEvent
+    function handlePointerDown(
+      event: PointerEvent
     ) {
+      try {
+        canvas.setPointerCapture(
+          event.pointerId
+        );
+      } catch {
+        // Ignore pointer capture errors.
+      }
+
       if (
         finalState
       ) {
@@ -1389,10 +1397,10 @@ export default function DeepSeaLogicPage() {
 
       dragging = true;
 
-      previousMouseX =
+      previousPointerX =
         event.clientX;
 
-      previousMouseY =
+      previousPointerY =
         event.clientY;
 
       const projected =
@@ -1443,8 +1451,8 @@ export default function DeepSeaLogicPage() {
         "grabbing";
     }
 
-    function handleMouseMove(
-      event: MouseEvent
+    function handlePointerMove(
+      event: PointerEvent
     ) {
       if (
         finalState
@@ -1464,11 +1472,11 @@ export default function DeepSeaLogicPage() {
 
       const deltaX =
         event.clientX -
-        previousMouseX;
+        previousPointerX;
 
       const deltaY =
         event.clientY -
-        previousMouseY;
+        previousPointerY;
 
       if (
         Math.abs(deltaX) > 0 ||
@@ -1477,10 +1485,10 @@ export default function DeepSeaLogicPage() {
         dragStarted = true;
       }
 
-      previousMouseX =
+      previousPointerX =
         event.clientX;
 
-      previousMouseY =
+      previousPointerY =
         event.clientY;
 
       targetRotationY +=
@@ -1499,8 +1507,51 @@ export default function DeepSeaLogicPage() {
         );
     }
 
-    function handleMouseUp() {
+    function handlePointerUp(
+      event: PointerEvent
+    ) {
       dragging = false;
+
+      try {
+        if (
+          canvas.hasPointerCapture(
+            event.pointerId
+          )
+        ) {
+          canvas.releasePointerCapture(
+            event.pointerId
+          );
+        }
+      } catch {
+        // Ignore pointer capture errors.
+      }
+
+      if (
+        !finalState
+      ) {
+        canvas.style.cursor =
+          "grab";
+      }
+    }
+
+    function handlePointerCancel(
+      event: PointerEvent
+    ) {
+      dragging = false;
+
+      try {
+        if (
+          canvas.hasPointerCapture(
+            event.pointerId
+          )
+        ) {
+          canvas.releasePointerCapture(
+            event.pointerId
+          );
+        }
+      } catch {
+        // Ignore pointer capture errors.
+      }
 
       if (
         !finalState
@@ -1607,6 +1658,9 @@ export default function DeepSeaLogicPage() {
     canvas.style.cursor =
       "grab";
 
+    canvas.style.touchAction =
+      "none";
+
     if (
       homepagePortal !== null
     ) {
@@ -1630,18 +1684,23 @@ export default function DeepSeaLogicPage() {
     );
 
     canvas.addEventListener(
-      "mousedown",
-      handleMouseDown
+      "pointerdown",
+      handlePointerDown
     );
 
-    window.addEventListener(
-      "mousemove",
-      handleMouseMove
+    canvas.addEventListener(
+      "pointermove",
+      handlePointerMove
     );
 
-    window.addEventListener(
-      "mouseup",
-      handleMouseUp
+    canvas.addEventListener(
+      "pointerup",
+      handlePointerUp
+    );
+
+    canvas.addEventListener(
+      "pointercancel",
+      handlePointerCancel
     );
 
     canvas.addEventListener(
@@ -1666,18 +1725,23 @@ export default function DeepSeaLogicPage() {
       );
 
       canvas.removeEventListener(
-        "mousedown",
-        handleMouseDown
+        "pointerdown",
+        handlePointerDown
       );
 
-      window.removeEventListener(
-        "mousemove",
-        handleMouseMove
+      canvas.removeEventListener(
+        "pointermove",
+        handlePointerMove
       );
 
-      window.removeEventListener(
-        "mouseup",
-        handleMouseUp
+      canvas.removeEventListener(
+        "pointerup",
+        handlePointerUp
+      );
+
+      canvas.removeEventListener(
+        "pointercancel",
+        handlePointerCancel
       );
 
       canvas.removeEventListener(
@@ -1756,6 +1820,9 @@ export default function DeepSeaLogicPage() {
 
           height:
             "100%",
+
+          touchAction:
+            "none",
         }}
       />
 
