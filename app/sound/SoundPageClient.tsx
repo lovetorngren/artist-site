@@ -1193,6 +1193,7 @@ export default function SoundPageClient({
 
   return (
     <div
+      className="sound-page-root"
       style={{
         width: "100vw",
         minHeight: "100vh",
@@ -1229,7 +1230,39 @@ export default function SoundPageClient({
 
       {/* LEFT GLOBAL CONTROLS */}
 
+      <style>{`
+        @media (max-width: 700px) {
+          .sound-page-root {
+            flex-direction: column !important;
+            align-items: center !important;
+          }
+
+          .sound-left-controls {
+            position: relative !important;
+            left: auto !important;
+            top: auto !important;
+            transform: none !important;
+            margin: 5rem auto 0 auto !important;
+            width: fit-content !important;
+            max-width: 100% !important;
+          }
+
+          .sound-volume {
+            position: relative !important;
+            right: auto !important;
+            top: auto !important;
+            margin: 2rem auto 0 auto !important;
+          }
+
+          .sound-main {
+            margin: 3rem auto 0 auto !important;
+            width: 100% !important;
+          }
+        }
+      `}</style>
+
       <div
+        className="sound-left-controls"
         style={{
           position: "fixed",
           left: "3rem",
@@ -1702,6 +1735,7 @@ export default function SoundPageClient({
       {/* GLOBAL VOLUME */}
 
       <div
+        className="sound-volume"
         style={{
           position: "fixed",
           right: "3rem",
@@ -1839,6 +1873,7 @@ export default function SoundPageClient({
       {/* CONTENT */}
 
       <main
+        className="sound-main"
         style={{
           maxWidth: "700px",
           margin: "7rem auto 0 auto",
