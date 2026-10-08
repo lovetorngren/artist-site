@@ -163,58 +163,6 @@ export default function DeepSeaLogicPage() {
     const particles: Particle[] = [];
     const particleCount = 15000;
 
-    /*
-     * Fixed random field for the final pixel
-     * dissolution. Kept here because the rest
-     * of the particle system remains unchanged.
-     */
-    const dissolveGridSize = 5;
-
-    const dissolveNoise: number[] = [];
-
-    let dissolveColumns = 0;
-    let dissolveRows = 0;
-
-    function rebuildDissolveNoise() {
-      dissolveColumns =
-        Math.ceil(
-          width /
-            dissolveGridSize
-        );
-
-      dissolveRows =
-        Math.ceil(
-          height /
-            dissolveGridSize
-        );
-
-      dissolveNoise.length = 0;
-
-      for (
-        let y = 0;
-        y < dissolveRows;
-        y++
-      ) {
-        for (
-          let x = 0;
-          x < dissolveColumns;
-          x++
-        ) {
-          const value =
-            Math.sin(
-              x * 12.9898 +
-                y * 78.233
-            ) *
-            43758.5453;
-
-          dissolveNoise.push(
-            value -
-              Math.floor(value)
-          );
-        }
-      }
-    }
-
     for (
       let i = 0;
       i < particleCount;
@@ -280,6 +228,27 @@ export default function DeepSeaLogicPage() {
       });
     }
 
+    /*
+     * The hidden homepage iframe used to load as soon
+     * as this page opened (twice: once from the JSX and
+     * again when the effect re-set its src), running the
+     * whole homepage in the background the entire time.
+     * It now loads only when the final stage gets close.
+     */
+    let homepageLoaded = false;
+
+    function loadHomepageIframe() {
+      if (
+        homepageLoaded ||
+        homepageIframe === null
+      ) {
+        return;
+      }
+
+      homepageLoaded = true;
+      homepageIframe.src = "/";
+    }
+
     function resize() {
       const rect =
         canvas.getBoundingClientRect();
@@ -309,8 +278,23 @@ export default function DeepSeaLogicPage() {
         0,
         0
       );
+    }
 
-      rebuildDissolveNoise();
+    /*
+     * cos/sin of the current rotation, worked out
+     * once per frame instead of once per particle
+     * (that was 60,000 trig calls every frame).
+     */
+    let cosY = Math.cos(rotationY);
+    let sinY = Math.sin(rotationY);
+    let cosX = Math.cos(rotationX);
+    let sinX = Math.sin(rotationX);
+
+    function updateRotationCache() {
+      cosY = Math.cos(rotationY);
+      sinY = Math.sin(rotationY);
+      cosX = Math.cos(rotationX);
+      sinX = Math.sin(rotationX);
     }
 
     function rotatePoint(
@@ -318,12 +302,6 @@ export default function DeepSeaLogicPage() {
       y: number,
       z: number
     ) {
-      const cosY =
-        Math.cos(rotationY);
-
-      const sinY =
-        Math.sin(rotationY);
-
       const x1 =
         x * cosY -
         z * sinY;
@@ -331,12 +309,6 @@ export default function DeepSeaLogicPage() {
       const z1 =
         x * sinY +
         z * cosY;
-
-      const cosX =
-        Math.cos(rotationX);
-
-      const sinX =
-        Math.sin(rotationX);
 
       const y2 =
         y * cosX -
@@ -427,6 +399,18 @@ export default function DeepSeaLogicPage() {
       const projected:
         ProjectedParticle[] = [];
 
+      const cameraDistance =
+        3.4;
+
+      // Same for every particle, so worked out once.
+      const scale =
+        Math.min(
+          width,
+          height
+        ) *
+        0.45 *
+        zoom;
+
       for (
         const particle of particles
       ) {
@@ -437,21 +421,10 @@ export default function DeepSeaLogicPage() {
             particle.z
           );
 
-        const cameraDistance =
-          3.4;
-
         const perspective =
           cameraDistance /
           (cameraDistance +
             rotated.z);
-
-        const scale =
-          Math.min(
-            width,
-            height
-          ) *
-          0.45 *
-          zoom;
 
         const screenX =
           width / 2 +
@@ -1008,6 +981,24 @@ export default function DeepSeaLogicPage() {
         }
       }
 
+      // The colour only depends on time, so get it once per frame,
+      // not once per lit particle.
+      const color =
+        getParticleColor(
+          now
+        );
+
+      const cameraDistance =
+        3.4;
+
+      const scale =
+        Math.min(
+          width,
+          height
+        ) *
+        0.45 *
+        zoom;
+
       for (
         const projectedParticle of projected
       ) {
@@ -1146,21 +1137,10 @@ export default function DeepSeaLogicPage() {
                   outward
             );
 
-          const cameraDistance =
-            3.4;
-
           const perspective =
             cameraDistance /
             (cameraDistance +
               displaced.z);
-
-          const scale =
-            Math.min(
-              width,
-              height
-            ) *
-            0.45 *
-            zoom;
 
           drawX =
             width / 2 +
@@ -1196,11 +1176,6 @@ export default function DeepSeaLogicPage() {
         ) {
           continue;
         }
-
-        const color =
-          getParticleColor(
-            now
-          );
 
         ctx.fillStyle =
           `rgba(${color.r},${color.g},${color.b},${brightness})`;
@@ -1277,6 +1252,8 @@ export default function DeepSeaLogicPage() {
           zoom) *
         0.1;
 
+      updateRotationCache();
+
       if (
         hasClickedOnce &&
         dragStarted &&
@@ -1291,6 +1268,10 @@ export default function DeepSeaLogicPage() {
         ) {
           maximumZoomReachedTime =
             now;
+
+          // Start loading the homepage now, 3 seconds
+          // before the final click is possible.
+          loadHomepageIframe();
         } else if (
           now -
             maximumZoomReachedTime >=
@@ -1307,14 +1288,24 @@ export default function DeepSeaLogicPage() {
           false;
       }
 
-      const projected =
-        projectParticles();
+      /*
+       * Only particles lit by a ripple are ever drawn,
+       * so with no ripples there is nothing to project.
+       * This skips projecting and sorting 15,000
+       * particles on every idle frame.
+       */
+      if (
+        ripples.length > 0
+      ) {
+        const projected =
+          projectParticles();
 
-      drawRipples(
-        now,
-        projected,
-        ripples
-      );
+        drawRipples(
+          now,
+          projected,
+          ripples
+        );
+      }
 
       drawEntranceBall(
         now
@@ -1351,6 +1342,9 @@ export default function DeepSeaLogicPage() {
           3.99
       ) {
         finalState = true;
+
+        // Normally already loading; this is a safety net.
+        loadHomepageIframe();
 
         finalClickX =
           event.clientX;
@@ -1444,7 +1438,9 @@ export default function DeepSeaLogicPage() {
         rippleSound.currentTime =
           0;
 
-        void rippleSound.play();
+        // .catch stops an error in the console if the
+        // browser blocks the sound or the file is missing.
+        rippleSound.play().catch(() => {});
       }
 
       canvas.style.cursor =
@@ -1671,13 +1667,6 @@ export default function DeepSeaLogicPage() {
         "none";
     }
 
-    if (
-      homepageIframe !== null
-    ) {
-      homepageIframe.src =
-        "/";
-    }
-
     window.addEventListener(
       "resize",
       resize
@@ -1719,6 +1708,8 @@ export default function DeepSeaLogicPage() {
         animationFrame
       );
 
+      rippleSound.pause();
+
       window.removeEventListener(
         "resize",
         resize
@@ -1755,7 +1746,9 @@ export default function DeepSeaLogicPage() {
     <main
       style={{
         width: "100%",
-        height: "100vh",
+        // dvh = the visible height on phones, without the
+        // part hidden behind the browser's address bar.
+        height: "100dvh",
         background:
           "#000000",
         overflow:
@@ -1765,9 +1758,17 @@ export default function DeepSeaLogicPage() {
       }}
     >
       <button
-        onClick={() =>
-          router.back()
-        }
+        onClick={() => {
+          // Someone who opened this page from a shared link
+          // has nothing to go back to, so send them home.
+          if (
+            window.history.length > 1
+          ) {
+            router.back();
+          } else {
+            router.push("/");
+          }
+        }}
         style={{
           position:
             "absolute",
@@ -1862,8 +1863,9 @@ export default function DeepSeaLogicPage() {
       >
         <iframe
           ref={homepageIframeRef}
-          src="/"
           title="Homepage"
+          tabIndex={-1}
+          aria-hidden="true"
           scrolling="no"
           style={{
             position:

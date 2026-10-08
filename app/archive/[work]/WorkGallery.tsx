@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function WorkGallery({
   images,
@@ -13,6 +13,25 @@ export default function WorkGallery({
   title: string;
 }) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  // While the enlarged image is open: Escape closes it, and the page
+  // behind it doesn't scroll.
+  useEffect(() => {
+    if (!selectedImage) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelectedImage(null);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [selectedImage]);
 
   return (
     <>
@@ -26,30 +45,38 @@ export default function WorkGallery({
           margin: "0 auto",
         }}
       >
-        {images.map((image) => {
+        {images.map((image, index) => {
           const imagePath = `/archive/${work}/${image}`;
 
           return (
-            <div
+            // A button instead of a div, so the images can also be
+            // opened with the keyboard.
+            <button
               key={image}
+              type="button"
               onClick={() => setSelectedImage(imagePath)}
+              aria-label={`Enlarge ${title}, image ${index + 1}`}
               style={{
                 position: "relative",
+                display: "block",
                 width: "100%",
                 height: "200px",
+                padding: 0,
+                border: "none",
+                background: "none",
                 cursor: "pointer",
               }}
             >
               <Image
                 src={imagePath}
-                alt={`${title} ${image}`}
+                alt={`${title}, image ${index + 1}`}
                 fill
-                sizes="350px"
+                sizes="(max-width: 700px) 50vw, 350px"
                 style={{
                   objectFit: "contain",
                 }}
               />
-            </div>
+            </button>
           );
         })}
       </div>
@@ -58,30 +85,37 @@ export default function WorkGallery({
       {selectedImage && (
         <div
           onClick={() => setSelectedImage(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
           style={{
             position: "fixed",
             inset: 0,
-            zIndex: 100,
+            // Above the back link (100) and the Ekolod sound control (50).
+            zIndex: 200,
             backgroundColor: "rgba(0, 0, 0, 0.95)",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
             padding: "3rem",
+            boxSizing: "border-box",
             cursor: "pointer",
           }}
         >
           <div
             style={{
               position: "relative",
-              width: "90vw",
-              height: "90vh",
+              // Fill the padded area instead of 90vw x 90vh, which was
+              // larger than the space available and got cut off.
+              width: "100%",
+              height: "100%",
             }}
           >
             <Image
               src={selectedImage}
               alt={title}
               fill
-              sizes="90vw"
+              sizes="100vw"
               style={{
                 objectFit: "contain",
               }}

@@ -460,7 +460,7 @@ export default function SoundPageClient({
   };
 
   const toggleMute = (
-    event: React.PointerEvent
+    event: React.MouseEvent
   ) => {
     event.stopPropagation();
 
@@ -475,6 +475,23 @@ export default function SoundPageClient({
 
   const effectiveVolume =
     muted ? 0 : volume;
+
+  /*
+    The metronome plays through its own audio
+    element, outside the Web Audio chain, so it
+    has to follow the volume and mute separately.
+  */
+
+  useEffect(() => {
+    const audio = metronomeAudioRef.current;
+
+    if (!audio) return;
+
+    audio.volume = effectiveVolume;
+
+    // iPhone/iPad ignore .volume, but do respect muted.
+    audio.muted = effectiveVolume === 0;
+  }, [effectiveVolume]);
 
   /*
     ==================================================
@@ -1195,7 +1212,7 @@ export default function SoundPageClient({
     <div
       className="sound-page-root"
       style={{
-        width: "100vw",
+        width: "100%",
         minHeight: "100vh",
         backgroundColor: "#000",
         color: "#fff",
@@ -1231,7 +1248,27 @@ export default function SoundPageClient({
       {/* LEFT GLOBAL CONTROLS */}
 
       <style>{`
-        @media (max-width: 700px) {
+        /*
+          Mid-size screens (most laptops): keep the
+          fixed side controls, but pad the page so the
+          track list sits between them instead of
+          underneath them.
+          Left:  3rem offset + 236px controls + 2rem gap
+          Right: 3rem offset + 30px volume + 2rem gap
+        */
+        @media (min-width: 901px) and (max-width: 1350px) {
+          .sound-page-root {
+            padding-left: calc(5rem + 236px) !important;
+            padding-right: calc(5rem + 30px) !important;
+          }
+        }
+
+        /*
+          Below 900px there isn't room for both, so
+          the controls stack above the tracks.
+          (This used to start at 700px.)
+        */
+        @media (max-width: 900px) {
           .sound-page-root {
             flex-direction: column !important;
             align-items: center !important;
@@ -1747,9 +1784,15 @@ export default function SoundPageClient({
         }}
       >
         <div
-          onPointerDown={
-            handleVolumeChange
-          }
+          onPointerDown={(event) => {
+            handleVolumeChange(event);
+
+            // Keep following the pointer even if it
+            // slides off this narrow strip mid-drag.
+            event.currentTarget.setPointerCapture(
+              event.pointerId
+            );
+          }}
           onPointerMove={(event) => {
             if (event.buttons === 1) {
               handleVolumeChange(
@@ -1802,7 +1845,7 @@ export default function SoundPageClient({
         </div>
 
         <button
-          onPointerDown={
+          onClick={
             toggleMute
           }
           aria-label={
@@ -2385,7 +2428,7 @@ export default function SoundPageClient({
           </h2>
 
           <a
-            href="https://open.spotify.com/playlist/642UvNbjQ9KbBb1EViMKkZ?si=EfMRRCo4RxaNj3La-fsZcw&utm_source=copy-link&pi=iw43gXP4SI6TZ"
+            href="https://open.spotify.com/playlist/642UvNbjQ9KbBb1EViMKkZ"
             target="_blank"
             rel="noopener noreferrer"
             style={{

@@ -11,6 +11,32 @@ const workOrder = [
   "Ekolod",
 ];
 
+// Browser-friendly video formats first. .mov is a last resort because
+// Chrome and Firefox often can't play it (HEVC/ProRes encodes).
+const VIDEO_PRIORITY = [/\.mp4$/i, /\.webm$/i, /\.mov$/i];
+
+function pickVideo(files: string[]) {
+  // A file named "thumb.*" wins, so a folder can hold a full-length
+  // video without that becoming the grid thumbnail.
+  const thumb = files.find((f) => /^thumb\.(mp4|webm|mov)$/i.test(f));
+  if (thumb) return thumb;
+  for (const pattern of VIDEO_PRIORITY) {
+    const match = files.find((f) => pattern.test(f));
+    if (match) return match;
+  }
+  return undefined;
+}
+
+function pickImage(files: string[]) {
+  // Prefer 01.jpg, otherwise fall back to the first image in the folder.
+  return (
+    files.find((f) => f.toLowerCase() === "01.jpg") ??
+    files
+      .filter((f) => /\.(jpe?g|png|webp|avif)$/i.test(f))
+      .sort()[0]
+  );
+}
+
 export default function ArchivePage() {
   const archiveFolder = path.join(
     process.cwd(),
@@ -18,19 +44,19 @@ export default function ArchivePage() {
     "archive"
   );
 
-  let works: string[] = [];
+  let works: { name: string; video?: string; image?: string }[] = [];
 
   try {
     const existingFolders = fs
       .readdirSync(archiveFolder, {
         withFileTypes: true,
       })
-      .filter((item) => item.isDirectory())
+      .filter((item) => item.isDirectory() && !item.name.startsWith("."))
       .map((item) => item.name);
 
     // Use the order above, but only include
     // folders that actually exist.
-    works = workOrder.filter((work) =>
+    const ordered = workOrder.filter((work) =>
       existingFolders.includes(work)
     );
 
@@ -40,10 +66,10 @@ export default function ArchivePage() {
       (work) => !workOrder.includes(work)
     );
 
-    works = [
-      ...works,
-      ...unorderedWorks,
-    ];
+    works = [...ordered, ...unorderedWorks].map((name) => {
+      const files = fs.readdirSync(path.join(archiveFolder, name));
+      return { name, video: pickVideo(files), image: pickImage(files) };
+    });
   } catch (error) {
     console.error(
       "Could not read archive:",
@@ -55,7 +81,7 @@ export default function ArchivePage() {
     <div
       className="archive-container"
       style={{
-        width: "100vw",
+        width: "100%",
         minHeight: "100vh",
         position: "relative",
         backgroundColor: "#000",
@@ -64,14 +90,16 @@ export default function ArchivePage() {
         alignItems: "flex-start",
         paddingTop: "3rem",
         paddingBottom: "3rem",
-        paddingLeft: "120px",
+        // 3rem (quote offset) + 300px (quote width) + 3rem gap,
+        // so the fixed quote never sits on top of the grid.
+        paddingLeft: "calc(300px + 6rem)",
         paddingRight: "3rem",
-        overflowY: "auto",
+        boxSizing: "border-box",
       }}
     >
       {/* Responsive layout */}
       <style>{`
-        @media (max-width: 700px) {
+        @media (max-width: 1000px) {
           .archive-container {
             flex-direction: column !important;
             padding-left: 1.5rem !important;
@@ -89,9 +117,14 @@ export default function ArchivePage() {
           }
 
           .archive-grid {
-            grid-template-columns: 1fr !important;
             width: 100% !important;
             max-width: 100% !important;
+          }
+        }
+
+        @media (max-width: 700px) {
+          .archive-grid {
+            grid-template-columns: 1fr !important;
           }
         }
       `}</style>
@@ -136,9 +169,7 @@ export default function ArchivePage() {
         }}
       >
         <p style={{ margin: 0 }}>
-          “Through my collaborative works in dance and performance I am trying to convey a specific sense of longing. A type of solitude that I think originates in my inability to become my own art works. To fully coincide with them. But that is not a longing supposed to be resolved, instead it functions as the main driver, the visual and emotional inspiration in my work."
-          <br />
-          <br />
+          “Through my collaborative works in dance and performance I am trying to convey a specific sense of longing. A type of solitude that I think originates in my inability to become my own art works. To fully coincide with them. But that is not a longing supposed to be resolved, instead it functions as the main driver, the visual and emotional inspiration in my work.”
         </p>
       </div>
 
@@ -148,31 +179,12 @@ export default function ArchivePage() {
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(2, 1fr)",
-          gap: "2rem",
+          gap: "3rem 2rem",
           maxWidth: "900px",
           width: "100%",
         }}
       >
-        {works.map((work) => {
-          const workPath = path.join(
-            archiveFolder,
-            work
-          );
-
-          const files = fs.readdirSync(workPath);
-
-          // Video takes priority over images
-          const videoFile = files.find(
-            (file) =>
-              /\.(mp4|webm|mov)$/i.test(file)
-          );
-
-          // If there is no video, use 01.jpg
-          const imageFile = files.find(
-            (file) =>
-              file.toLowerCase() === "01.jpg"
-          );
-
+        {works.map(({ name: work, video: videoFile, image: imageFile }) => {
           return (
             <Link
               key={work}
@@ -188,11 +200,13 @@ export default function ArchivePage() {
               {videoFile && (
                 <video
                   src={`/archive/${work}/${videoFile}`}
+                  poster={imageFile ? `/archive/${work}/${imageFile}` : undefined}
                   autoPlay
                   loop
                   muted
                   playsInline
                   preload="metadata"
+                  aria-hidden="true"
                   style={{
                     width: "100%",
                     height: "100%",
@@ -209,6 +223,8 @@ export default function ArchivePage() {
                 <img
                   src={`/archive/${work}/${imageFile}`}
                   alt={work.replace(/-/g, " ")}
+                  loading="lazy"
+                  decoding="async"
                   style={{
                     width: "100%",
                     height: "100%",

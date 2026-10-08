@@ -1,10 +1,16 @@
 import fs from "fs";
 import path from "path";
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 
 import WorkGallery from "./WorkGallery";
 import EkolodSound from "./EkolodSound";
 
+const archiveFolder = path.join(process.cwd(), "public", "archive");
+
+// Keys are lowercase; lookups lowercase the folder name, so "Ekolod"
+// and "ekolod" both match.
 const workTitles: {
   [key: string]: string;
 } = {
@@ -18,6 +24,45 @@ const workTitles: {
   bell: "Bell",
 };
 
+function getTitle(work: string) {
+  return (
+    workTitles[work.toLowerCase()] ||
+    work
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (letter) => letter.toUpperCase())
+  );
+}
+
+function getWorkFolders() {
+  try {
+    return fs
+      .readdirSync(archiveFolder, { withFileTypes: true })
+      .filter((item) => item.isDirectory() && !item.name.startsWith("."))
+      .map((item) => item.name);
+  } catch (error) {
+    console.error("Could not read archive:", error);
+    return [];
+  }
+}
+
+// Build every work page at build time. Pages are then plain static files:
+// faster, and they don't depend on the server being able to read /public.
+export function generateStaticParams() {
+  return getWorkFolders().map((work) => ({ work }));
+}
+
+// Any /archive/<something> that isn't a real folder gets a proper 404.
+export const dynamicParams = false;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ work: string }>;
+}): Promise<Metadata> {
+  const { work } = await params;
+  return { title: getTitle(work) };
+}
+
 export default async function WorkPage({
   params,
 }: {
@@ -25,18 +70,13 @@ export default async function WorkPage({
 }) {
   const { work } = await params;
 
-  const workFolder = path.join(
-    process.cwd(),
-    "public",
-    "archive",
-    work
-  );
+  // Belt and braces: only ever read folders that really exist in the archive.
+  if (!getWorkFolders().includes(work)) {
+    notFound();
+  }
 
-  const title =
-    workTitles[work] ||
-    work
-      .replace(/-/g, " ")
-      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const workFolder = path.join(archiveFolder, work);
+  const title = getTitle(work);
 
   let description = "";
 
@@ -59,40 +99,46 @@ export default async function WorkPage({
     );
   }
 
-  let images: string[] = [];
+  // Blank lines in description.txt become separate paragraphs.
+  const paragraphs = description
+    .split(/\r?\n\s*\r?\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  let files: string[] = [];
 
   try {
-    images = fs
-      .readdirSync(workFolder)
-      .filter((file) =>
-        /\.(jpg|jpeg|png|webp|gif)$/i.test(file)
-      )
-      .sort();
+    files = fs.readdirSync(workFolder);
   } catch (error) {
     console.error(
-      "Could not read images:",
+      "Could not read work folder:",
       error
     );
   }
 
-  let videoFile: string | null = null;
-
-  try {
-    const video = fs
-      .readdirSync(workFolder)
-      .find((file) =>
-        /\.(mp4|webm|mov)$/i.test(file)
-      );
-
-    if (video) {
-      videoFile = video;
-    }
-  } catch (error) {
-    console.error(
-      "Could not read video:",
-      error
+  // Numeric sort, so 2.jpg comes before 10.jpg.
+  const images = files
+    .filter((file) =>
+      /\.(jpg|jpeg|png|webp|gif)$/i.test(file)
+    )
+    .sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true })
     );
-  }
+
+  // Skip thumb.* (the short grid loop) and prefer browser-friendly formats.
+  const videos = files.filter(
+    (file) =>
+      /\.(mp4|webm|mov)$/i.test(file) &&
+      !/^thumb\./i.test(file)
+  );
+  const videoFile =
+    videos.find((f) => /\.mp4$/i.test(f)) ??
+    videos.find((f) => /\.webm$/i.test(f)) ??
+    videos[0] ??
+    null;
+
+  const posterFile =
+    images.find((f) => f.toLowerCase() === "01.jpg") ?? images[0];
 
   const isEkolod =
     work.toLowerCase() === "ekolod";
@@ -109,7 +155,8 @@ export default async function WorkPage({
         boxSizing: "border-box",
       }}
     >
-      {isEkolod && <EkolodSound />}
+      {/* Path built from the real folder name, so upper/lowercase always matches. */}
+      {isEkolod && <EkolodSound src={`/archive/${work}/ekolod.mp3`} />}
 
       <nav
         style={{
@@ -152,18 +199,19 @@ export default async function WorkPage({
           {title}
         </h1>
 
-        {description && (
+        {paragraphs.map((paragraph, i) => (
           <p
+            key={i}
             style={{
-              margin: "1.5rem 0 0 0",
+              margin: i === 0 ? "1.5rem 0 0 0" : "1rem 0 0 0",
               fontSize: "1rem",
               lineHeight: 1.8,
               opacity: 0.85,
             }}
           >
-            {description}
+            {paragraph}
           </p>
-        )}
+        ))}
       </div>
 
       {videoFile && (
@@ -176,6 +224,7 @@ export default async function WorkPage({
         >
           <video
             src={`/archive/${work}/${videoFile}`}
+            poster={posterFile ? `/archive/${work}/${posterFile}` : undefined}
             autoPlay
             loop
             muted

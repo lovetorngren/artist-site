@@ -132,18 +132,68 @@ const SoundPlayer = forwardRef<
   const dragging =
     useRef(false);
 
+  // State copy of `dragging`, so the cursor
+  // re-renders as "grabbing" during a drag.
+  const [isDragging, setIsDragging] =
+    useState(false);
+
   /*
     ==================================================
     VOLUME
     ==================================================
+
+    Volume goes through the gain node in the Web
+    Audio chain, not audio.volume. iPhone/iPad
+    ignore audio.volume entirely, so before this
+    every track played at full volume there.
+
+    audio.volume is only used as a fallback if the
+    Web Audio chain isn't set up.
   */
 
+  const volumeRef =
+    useRef(volume);
+
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume =
-        volume;
+    volumeRef.current = volume;
+
+    const audio =
+      audioRef.current;
+
+    const gain =
+      gainNodeRef.current;
+
+    if (gain && audioContext) {
+      if (audio) {
+        audio.volume = 1;
+      }
+
+      /*
+        If a declick fade is in progress, leave it:
+        it fades back in to volumeRef.current, which
+        is already up to date.
+      */
+      if (
+        declickTimeoutRef.current === null &&
+        declickFallbackTimeoutRef.current === null
+      ) {
+        const now =
+          audioContext.currentTime;
+
+        gain.gain.cancelScheduledValues(now);
+
+        // Short glide instead of a jump, so
+        // volume changes don't crackle.
+        gain.gain.setTargetAtTime(
+          volume,
+          now,
+          0.01
+        );
+      }
+    } else if (audio) {
+      audio.volume = volume;
     }
-  }, [volume]);
+  }, [volume, audioContext]);
 
   /*
     ==================================================
@@ -197,7 +247,13 @@ const SoundPlayer = forwardRef<
       const gain =
         audioContext.createGain();
 
-      gain.gain.value = 1;
+      // Start at the current volume; from here on the
+      // gain node does the volume, so the element
+      // itself stays at full.
+      gain.gain.value =
+        volumeRef.current;
+
+      audio.volume = 1;
 
       gainNodeRef.current =
         gain;
@@ -436,6 +492,48 @@ const SoundPlayer = forwardRef<
 
   /*
     ==================================================
+    SMOOTH PLAYHEAD
+    ==================================================
+
+    "timeupdate" only fires about 4 times a second,
+    so the dot moved in small jumps. While playing,
+    read the position every animation frame instead.
+  */
+
+  useEffect(() => {
+    if (!playing) return;
+
+    const audio =
+      audioRef.current;
+
+    if (!audio) return;
+
+    let frame = 0;
+
+    const tick = () => {
+      if (
+        audio.duration &&
+        isFinite(audio.duration)
+      ) {
+        setProgress(
+          audio.currentTime /
+            audio.duration
+        );
+      }
+
+      frame =
+        requestAnimationFrame(tick);
+    };
+
+    frame =
+      requestAnimationFrame(tick);
+
+    return () =>
+      cancelAnimationFrame(frame);
+  }, [playing]);
+
+  /*
+    ==================================================
     DECLOCK CLEANUP
     ==================================================
   */
@@ -612,7 +710,9 @@ const SoundPlayer = forwardRef<
         const finishFadeIn =
           () => {
             clearPendingDeclick();
-            rampGainTo(1);
+            rampGainTo(
+              volumeRef.current
+            );
           };
 
         declickSeekedListenerRef.current =
@@ -665,8 +765,6 @@ const SoundPlayer = forwardRef<
         }
 
         try {
-          audio.volume =
-            volume;
 
           await audio.play();
 
@@ -793,6 +891,8 @@ const SoundPlayer = forwardRef<
     dragging.current =
       true;
 
+    setIsDragging(true);
+
     updatePosition(
       event.clientX,
       event.currentTarget
@@ -820,6 +920,8 @@ const SoundPlayer = forwardRef<
   ) => {
     dragging.current =
       false;
+
+    setIsDragging(false);
 
     if (
       event.currentTarget.hasPointerCapture(
@@ -861,8 +963,6 @@ const SoundPlayer = forwardRef<
 
     if (audio.paused) {
       try {
-        audio.volume =
-          volume;
 
         await audio.play();
 
@@ -898,7 +998,11 @@ const SoundPlayer = forwardRef<
       <audio
         ref={audioRef}
         src={src}
-        preload="auto"
+        // Only fetch the length up front (all the
+        // playheads need); the audio itself loads on
+        // play. "auto" downloaded every track, and
+        // every layer, as soon as the page opened.
+        preload="metadata"
         loop
       />
 
@@ -979,7 +1083,7 @@ const SoundPlayer = forwardRef<
           height: "20px",
           flex: 1,
           cursor:
-            dragging.current
+            isDragging
               ? "grabbing"
               : "grab",
           touchAction:
